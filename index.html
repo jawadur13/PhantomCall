@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PhantomCall</title>
+
+    <style>
+        :root {
+            --green: #00c853;
+            --red: #d50000;
+            --dark: #000;
+            --muted: #aaa;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont;
+        }
+
+        body {
+            margin: 0;
+            background: var(--dark);
+            color: white;
+            height: 100vh;
+        }
+
+        /* ---------- SETUP ---------- */
+        #setup {
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        p {
+            text-align: center;
+            color: var(--muted);
+        }
+
+        label {
+            display: block;
+            margin-top: 14px;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 6px;
+            background: #111;
+            border: 1px solid #333;
+            color: white;
+            border-radius: 8px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: none;
+            background: var(--green);
+            color: black;
+            font-weight: bold;
+        }
+
+        /* ---------- INCOMING CALL ---------- */
+        #incoming {
+            display: none;
+            height: 100vh;
+            background: linear-gradient(#000, #111);
+            text-align: center;
+            padding-top: 90px;
+            position: relative;
+        }
+
+        #callerPhoto {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid #222;
+        }
+
+        #callerName {
+            font-size: 26px;
+            margin-top: 20px;
+        }
+
+        #callingText {
+            color: var(--muted);
+            margin-top: 6px;
+        }
+
+        .call-buttons {
+            position: absolute;
+            bottom: 50px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .call-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            font-size: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .accept {
+            background: var(--green);
+        }
+
+        .decline {
+            background: var(--red);
+        }
+
+        /* ---------- VIDEO CALL ---------- */
+        #videoCall {
+            display: none;
+            height: 100vh;
+            background: black;
+            position: relative;
+        }
+
+        #remoteVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #localVideo {
+            position: absolute;
+            bottom: 110px;
+            right: 16px;
+            width: 120px;
+            height: 160px;
+            border-radius: 12px;
+            border: 2px solid white;
+            object-fit: cover;
+        }
+
+        /* ---------- CONTROLS ---------- */
+        #controls {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 90px;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: space-evenly;
+            align-items: center;
+        }
+
+        .ctrl-btn {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+            .ctrl-btn.end {
+                background: var(--red);
+            }
+    </style>
+</head>
+
+<body>
+
+    <!-- SETUP -->
+    <div id="setup">
+        <h1>📞 PhantomCall</h1>
+        <p>Fake video calls. Real reactions.</p>
+
+        <label>Caller Name</label>
+        <input id="nameInput" placeholder="Boss 😨">
+
+        <label>Delay</label>
+        <select id="delayInput">
+            <option value="5">5 seconds</option>
+            <option value="10">10 seconds</option>
+            <option value="30">30 seconds</option>
+        </select>
+
+        <label>Caller Photo</label>
+        <input type="file" id="photoInput" accept="image/*">
+
+        <label>Prank Video</label>
+        <input type="file" id="videoInput" accept="video/*">
+
+        <button onclick="startPrank()">Start Prank</button>
+    </div>
+
+    <!-- INCOMING -->
+    <div id="incoming">
+        <img id="callerPhoto">
+        <div id="callerName"></div>
+        <div id="callingText">Incoming video call…</div>
+
+        <div class="call-buttons">
+            <div class="call-btn decline">✕</div>
+            <div class="call-btn accept" onclick="acceptCall()">📞</div>
+        </div>
+    </div>
+
+    <!-- VIDEO CALL -->
+    <div id="videoCall">
+        <video id="remoteVideo" autoplay></video>
+        <video id="localVideo" autoplay muted></video>
+
+        <div id="controls">
+            <div class="ctrl-btn" onclick="toggleMic()">🎙</div>
+            <div class="ctrl-btn" onclick="toggleCam()">📷</div>
+            <div class="ctrl-btn" onclick="switchCamera()">🔄</div>
+            <div class="ctrl-btn end" onclick="endCall()">❌</div>
+        </div>
+    </div>
+
+    <script>
+        let prankVideoFile;
+        let localStream;
+        let micOn = true;
+        let camOn = true;
+        let facingMode = "user";
+
+        /* ---------- START ---------- */
+        function startPrank() {
+            prankVideoFile = videoInput.files[0];
+            if (!prankVideoFile) return alert("Select a prank video");
+
+            if (photoInput.files[0]) {
+                callerPhoto.src = URL.createObjectURL(photoInput.files[0]);
+            }
+
+            callerName.innerText = nameInput.value || "Unknown Caller";
+            setup.style.display = "none";
+
+            setTimeout(() => {
+                document.documentElement.requestFullscreen();
+                incoming.style.display = "block";
+            }, delayInput.value * 1000);
+        }
+
+        /* ---------- ACCEPT ---------- */
+        function acceptCall() {
+            incoming.style.display = "none";
+            videoCall.style.display = "block";
+
+            remoteVideo.src = URL.createObjectURL(prankVideoFile);
+
+            startCamera();
+        }
+
+        /* ---------- CAMERA ---------- */
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode },
+                audio: true
+            }).then(stream => {
+                localStream = stream;
+                localVideo.srcObject = stream;
+            });
+        }
+
+        /* ---------- CONTROLS ---------- */
+        function toggleMic() {
+            micOn = !micOn;
+            localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+        }
+
+        function toggleCam() {
+            camOn = !camOn;
+            localStream.getVideoTracks().forEach(t => t.enabled = camOn);
+        }
+
+        function switchCamera() {
+            facingMode = facingMode === "user" ? "environment" : "user";
+            localStream.getTracks().forEach(t => t.stop());
+            startCamera();
+        }
+
+        function endCall() {
+            localStream?.getTracks().forEach(t => t.stop());
+            document.exitFullscreen();
+            location.reload();
+        }
+    </script>
+
+</body>
+</html>
